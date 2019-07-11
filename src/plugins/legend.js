@@ -98,8 +98,7 @@ var isString = function(s) {
 var replaceHTML = function(e, html) {
   if (isString(html)) {
     e.innerHTML = html;
-  } else if (html instanceof Node &&
-      html.nodeType == Node.DOCUMENT_FRAGMENT_NODE) {
+  } else if (html instanceof Node) {
     e.innerHTML = '';
     e.appendChild(html);
   }
@@ -139,7 +138,7 @@ Legend.prototype.select = function(e) {
     this.legend_div_.style.top = topLegend + "px";
   }
 
-  var html = Legend.generateLegendHTML(e.dygraph, xValue, points, this.one_em_width_, row);
+  var html = this.generateLegendHTML(e.dygraph, xValue, points, this.one_em_width_, row);
   replaceHTML(this.legend_div_, html)
   this.legend_div_.style.display = '';
 };
@@ -154,7 +153,7 @@ Legend.prototype.deselect = function(e) {
   var oneEmWidth = calculateEmWidthInDiv(this.legend_div_);
   this.one_em_width_ = oneEmWidth;
 
-  var html = Legend.generateLegendHTML(e.dygraph, undefined, undefined, oneEmWidth, null);
+  var html = this.generateLegendHTML(e.dygraph, undefined, undefined, oneEmWidth, null);
   replaceHTML(this.legend_div_, html)
 };
 
@@ -204,12 +203,13 @@ Legend.prototype.destroy = function() {
  * @param {number} row The selected row index.
  * @private
  */
-Legend.generateLegendHTML = function(g, x, sel_points, oneEmWidth, row) {
+Legend.prototype.generateLegendHTML = function(g, x, sel_points, oneEmWidth, row) {
   // Data about the selection to pass to legendFormatter
   var data = {
     dygraph: g,
     x: x,
-    series: []
+    series: [],
+    legend: this
   };
 
   var labelToSeries = {};
