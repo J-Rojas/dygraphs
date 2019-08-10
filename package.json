@@ -63,7 +63,8 @@
     "watch": "./scripts/watch.sh",
     "build-tests": "./scripts/build-tests.sh",
     "test": "./scripts/run-tests.sh",
-    "tests-ok": "./scripts/check-no-only.sh"
+    "tests-ok": "./scripts/check-no-only.sh",
+    "prepare": "npm run build"
   },
   "pre-commit": [
     "tests-ok"
