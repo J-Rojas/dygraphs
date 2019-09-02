@@ -1725,9 +1725,9 @@ Dygraph.prototype.updateSelection_ = function(opt_animFraction) {
     // Redraw only the highlighted series in the interactive canvas (not the
     // static plot canvas, which is where series are usually drawn).
     this.plotter_._renderLineChart(this.highlightSet_, ctx);
-  } else if (this.previousVerticalX_ >= 0) {
-    // Determine the maximum highlight circle size.
-    var maxCircleSize = 0;
+  } else if (this.previousVerticalX_ >= 0) {    
+    // Determine the maximum highlight circle size.    
+    var maxCircleSize = this.getNumericOption('highlightLineWidth');    
     var labels = this.attr_('labels');
     for (i = 1; i < labels.length; i++) {
       var r = this.getNumericOption('highlightCircleSize', labels[i]);
@@ -1739,9 +1739,25 @@ Dygraph.prototype.updateSelection_ = function(opt_animFraction) {
   }
 
   if (this.selPoints_.length > 0) {
-    // Draw colored circles over the center of each selected point
+
     var canvasx = this.selPoints_[0].canvasx;
     ctx.save();
+
+    // Draw highlighted line
+    var lineWidth = this.getNumericOption('highlightLineWidth');
+    var lineCallback = this.getFunctionOption("drawHighlightLineCallback");
+    var lineColor = utils.toRGB_(this.getOption('highlightLineColor'));  
+
+    if (lineWidth > 0) {
+      ctx.lineWidth = lineWidth;
+      ctx.fillStyle = ctx.strokeStyle = 'rgba(' + lineColor.r + ',' + lineColor.g + ',' + lineColor.b + ')';      
+      if (!lineCallback) {
+        lineCallback = utils.Line.DEFAULT;
+      }        
+      lineCallback.call(this, this, ctx, canvasx, this.selPoints_, lineWidth, lineColor);
+    }
+
+    // Draw colored circles over the center of each selected point  
     for (i = 0; i < this.selPoints_.length; i++) {
       var pt = this.selPoints_[i];
       if (isNaN(pt.canvasy)) continue;

@@ -940,6 +940,14 @@ export var Circles = {
   // For more shapes, include extras/shapes.js
 };
 
+export var Line = {
+  DEFAULT : function(g, ctx, canvasx, points, lineWidth, lineColor) {
+    ctx.fillRect(canvasx - lineWidth / 2, 0, lineWidth, g.height_);
+  }
+  // For more shapes, include extras/shapes.js
+};
+
+
 /**
  * Determine whether |data| is delimited by CR, CRLF, LF, LFCR.
  * @param {string} data

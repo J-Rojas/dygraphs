@@ -165,6 +165,31 @@ OPTIONS_REFERENCE =  // <JSON>
     "type": "string",
     "description": "Sets the background color used to fade out the series in conjunction with 'highlightSeriesBackgroundAlpha'."
   },
+  "highlightLineColor": {
+    "default": "rgb(255, 255, 0)",
+    "labels": ["Interactive Elements"],
+    "type": "string",
+    "description": "Sets the line color used for the highlighting line."
+  },
+  "highlightLineWidth": {
+    "default": "0",
+    "labels": ["Interactive Elements"],
+    "type": "integer",
+    "description": "Sets the width for the highlighting line. If 0, no line is drawn."
+  },
+  "drawHighlightLineCallback": {
+    "default": "null",
+    "labels": ["Data Line display"],
+    "type": "function(g, ctx, cx, selectedPoints, lineWidth, lineColor)",
+    "parameters": [
+      [ "g" , "the reference graph" ],
+      [ "canvasContext" , "the canvas to draw on" ],
+      [ "cx" , "x coordinate" ],
+      [ "lineColor" , "series color" ],
+      [ "lineWidth" , "the width of the line." ]      
+    ],
+    "description": "Draw a custom highlight line.  Default is to draw a line from the top of the graph to bottom along the currently select X value."
+  },
   "includeZero": {
     "default": "false",
     "labels": ["Axis display"],
