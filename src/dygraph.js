@@ -483,7 +483,7 @@ Dygraph.prototype.optionsViewForAxis_ = function(axis) {
     }
     // check old-style axis options
     // TODO(danvk): add a deprecation warning if either of these match.
-    if (axis == 'y' && self.axes_[0].hasOwnProperty(opt)) {
+    if ((axis == 'y' || axis == 'y1') && self.axes_[0].hasOwnProperty(opt)) {
       return self.axes_[0][opt];
     } else if (axis == 'y2' && self.axes_[1].hasOwnProperty(opt)) {
       return self.axes_[1][opt];
@@ -2397,7 +2397,7 @@ Dygraph.prototype.computeYAxes_ = function() {
 
   for (axis = 0; axis < this.axes_.length; axis++) {
     if (axis === 0) {
-      opts = this.optionsViewForAxis_('y' + (axis ? '2' : ''));
+      opts = this.optionsViewForAxis_('y');
       v = opts("valueRange");
       if (v) this.axes_[axis].valueRange = v;
     } else {  // To keep old behavior
@@ -2568,7 +2568,7 @@ Dygraph.prototype.computeYAxisRanges_ = function(extremes) {
 
     if (independentTicks) {
       axis.independentTicks = independentTicks;
-      var opts = this.optionsViewForAxis_('y' + (i ? '2' : ''));
+      var opts = i ? this.optionsViewForAxis_('y2') : this.optionsViewForAxis_('y');
       var ticker = opts('ticker');
       axis.ticks = ticker(axis.computedValueRange[0],
               axis.computedValueRange[1],
@@ -2589,7 +2589,7 @@ Dygraph.prototype.computeYAxisRanges_ = function(extremes) {
     var axis = this.axes_[i];
 
     if (!axis.independentTicks) {
-      var opts = this.optionsViewForAxis_('y' + (i ? '2' : ''));
+      var opts = i ? this.optionsViewForAxis_('y2') : this.optionsViewForAxis_('y');
       var ticker = opts('ticker');
       var p_ticks = p_axis.ticks;
       var p_scale = p_axis.computedValueRange[1] - p_axis.computedValueRange[0];

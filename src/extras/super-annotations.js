@@ -314,7 +314,7 @@ annotations.prototype.getTemplateHTML = function(div, a) {
   var row = row_col[0];
   var col = row_col[1];
 
-  var yOptView = g.optionsViewForAxis_('y1');  // TODO: support secondary, too
+  var yOptView = g.optionsViewForAxis_('y');  // TODO: support secondary, too
   var xOptView = g.optionsViewForAxis_('x');
   var xvf = g.getOptionForAxis('valueFormatter', 'x');
 
