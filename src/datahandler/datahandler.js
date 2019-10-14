@@ -43,6 +43,8 @@
 
 "use strict";
 
+import * as utils from '../dygraph-utils';
+
 /**
  *
  * The data handler is responsible for all data specific operations. All of the
@@ -105,7 +107,7 @@ handler.prototype.extractSeries = function(rawData, seriesIndex, options) {
  *          number of skipped points left of the date window minimum (if any).
  * @return {!Array.<Dygraph.PointType>} List of points for this series.
  */
-handler.prototype.seriesToPoints = function(series, setName, boundaryIdStart) {
+handler.prototype.seriesToPoints = function(series, setName, boundaries) {
   // TODO(bhs): these loops are a hot-spot for high-point-count charts. In
   // fact,
   // on chrome+linux, they are 6 times more expensive than iterating through
@@ -113,7 +115,7 @@ handler.prototype.seriesToPoints = function(series, setName, boundaryIdStart) {
   // points and drawing the lines. The brunt of the cost comes from allocating
   // the |point| structures.
   var points = [];
-  for ( var i = 0; i < series.length; ++i) {
+  for ( var i = boundaries[0]; i < boundaries[1]; ++i) {
     var item = series[i];
     var yraw = item[1];
     var yval = yraw === null ? null : handler.parseFloat(yraw);
@@ -123,7 +125,7 @@ handler.prototype.seriesToPoints = function(series, setName, boundaryIdStart) {
       xval : handler.parseFloat(item[0]),
       yval : yval,
       name : setName, // TODO(danvk): is this really necessary?
-      idx : i + boundaryIdStart,
+      idx : i + boundaries[0],
       canvasx: NaN, // add these so we do not alter the structure later, which slows Chrome
       canvasy: NaN,
     };
@@ -187,6 +189,105 @@ handler.prototype.getExtremeYValues = function(series, dateWindow, options) {
  */
 handler.prototype.onLineEvaluated = function(points, axis, logscale) {
 };
+
+/** 
+ * Return the number of rows 
+ * @param {!Object} data source
+ * @return {number}
+ */
+handler.prototype.numRows = function(data) {
+  return data.length;
+}
+
+/** 
+ * Return the number of columns 
+ * @param {!Object} data source
+ * @return {number}
+ */
+handler.prototype.numColumns = function(data) {
+  return data[0].length;
+}
+
+/**
+ * Returns the value in the given row and column. If the row and column exceed
+ * the bounds on the data, returns null. Also returns null if the value is
+ * missing.
+ * @param {!Object} data source
+ * @param {number} row The row number of the data (0-based). Row 0 is the
+ *     first row of data, not a header row.
+ * @param {number} col The column number of the data (0-based)
+ * @return {number} The value in the specified cell or null if the row/col
+ *     were out of range.
+ */
+handler.prototype.getValue = function(data, row, col) {
+  if (row < 0 || row > data.length) return null;
+  if (col < 0 || col > data[row].length) return null;
+
+  return data[row][col];
+};
+
+/**
+ * Sets the value in the given row and column. If the row and column exceed
+ * the bounds on the data, no value is set. 
+ * @param {!Object} data source
+ * @param {number} row The row number of the data (0-based). Row 0 is the
+ *     first row of data, not a header row.
+ * @param {number} col The column number of the data (0-based)
+ */
+handler.prototype.setValue = function(data, row, col, value) {
+  if (row < 0 || row > data.length) return;
+  if (col < 0 || col > data[row].length) return;
+
+  data[row][col] = value;
+};
+
+handler.prototype.validateDataFormat = function(data) {
+
+  // Peek at the first x value to see if it's numeric.
+  if (data.length === 0) {
+    throw new Error("Can't plot empty data set");    
+  }
+  if (data[0].length === 0) {
+    throw new Error("Data set cannot contain an empty row");    
+  }
+
+  const firstRow = data[0];
+  const firstX = firstRow[0];
+  if (typeof firstX !== 'number' && !utils.isDateLike(firstX)) {
+    throw new Error(`Expected number or date but got ${typeof firstX}: ${firstX}.`);
+  }
+  for (let i = 1; i < firstRow.length; i++) {
+    const val = firstRow[i];
+    if (val === null || val === undefined) continue;
+    if (typeof val === 'number') continue;
+    if (utils.isArrayLike(val)) continue;  // e.g. error bars or custom bars.
+    throw new Error(`Expected number or array but got ${typeof val}: ${val}.`);
+  }
+}
+
+/** 
+ * Return a data structure with any Date objects represented as numbers.
+ * 
+ * @param {!Object} data original data source with Date objects
+ * @return {!Object} parsed data source
+ */
+handler.prototype.parseDates = function(data) {
+
+  let rows = this.numRows(data);
+  // Assume they're all dates.
+  var parsedData = utils.clone(data);
+  for (i = 0; i < rows; i++) {
+    let value = this.dataHandler_.getValue(parsedData, i, 0);
+    if (value === null ||
+        typeof(value.getTime) != 'function' ||
+        isNaN(value.getTime())) {
+      console.error("x value in row " + (1 + i) + " is not a Date");
+      return null;
+    }
+    this.dataHandler_.setValue(parsedData, i, 0, value.getTime());
+  }
+  return parsedData;
+}
 
 /**
  * Optimized replacement for parseFloat, which was way too slow when almost

@@ -518,8 +518,8 @@ Dygraph.prototype.xAxisExtremes = function() {
   if (this.numRows() === 0) {
     return [0 - pad, 1 + pad];
   }
-  var left = this.rawData_[0][0];
-  var right = this.rawData_[this.rawData_.length - 1][0];
+  var left = this.getValue(0, 0);
+  var right = this.getValue(this.numRows(), 0);
   if (pad) {
     // Must keep this in sync with dygraph-layout _evaluateLimits()
     var range = right - left;
@@ -757,7 +757,7 @@ Dygraph.prototype.toPercentXCoord = function(x) {
  */
 Dygraph.prototype.numColumns = function() {
   if (!this.rawData_) return 0;
-  return this.rawData_[0] ? this.rawData_[0].length : this.attr_("labels").length;
+  return this.dataHandler_.numColumns(this.rawData_) || this.attr_("labels").length;  
 };
 
 /**
@@ -766,7 +766,7 @@ Dygraph.prototype.numColumns = function() {
  */
 Dygraph.prototype.numRows = function() {
   if (!this.rawData_) return 0;
-  return this.rawData_.length;
+  return this.dataHandler_.numRows(this.rawData_);
 };
 
 /**
@@ -780,10 +780,7 @@ Dygraph.prototype.numRows = function() {
  *     were out of range.
  */
 Dygraph.prototype.getValue = function(row, col) {
-  if (row < 0 || row > this.rawData_.length) return null;
-  if (col < 0 || col > this.rawData_[row].length) return null;
-
-  return this.rawData_[row][col];
+  return this.dataHandler_.getValue(this.rawData_, row, col);
 };
 
 /**
@@ -1995,9 +1992,6 @@ Dygraph.prototype.getHandlerClass_ = function() {
 Dygraph.prototype.predraw_ = function() {
   var start = new Date();
 
-  // Create the correct dataHandler
-  this.dataHandler_ = new (this.getHandlerClass_())();
-
   this.layout_.computePlotArea();
 
   // TODO(danvk): move more computations out of drawGraph_ and into here.
@@ -2202,25 +2196,17 @@ Dygraph.prototype.gatherDatasets_ = function(rolledSeries, dateWindow) {
     // Prune down to the desired range, if necessary (for zooming)
     // Because there can be lines going to points outside of the visible area,
     // we actually prune to visible points, plus one on either side.
+    series = rolledSeries[seriesIdx];
+
     if (dateWindow) {
-      series = rolledSeries[seriesIdx];
       var low = dateWindow[0];
       var high = dateWindow[1];
 
-      // TODO(danvk): do binary search instead of linear search.
       // TODO(danvk): pass firstIdx and lastIdx directly to the renderer.
-      firstIdx = null;
-      lastIdx = null;
-      for (sampleIdx = 0; sampleIdx < series.length; sampleIdx++) {
-        if (series[sampleIdx][0] >= low && firstIdx === null) {
-          firstIdx = sampleIdx;
-        }
-        if (series[sampleIdx][0] <= high) {
-          lastIdx = sampleIdx;
-        }
-      }
+      firstIdx = utils.binarySearch(low, series, 1, 0, series.length - 1, it => it[0]);
+      lastIdx = utils.binarySearch(high, series, -1, firstIdx + 1, series.length - 1, it => it[0]);
 
-      if (firstIdx === null) firstIdx = 0;
+      if (firstIdx === -1) firstIdx = 0;
       var correctedFirstIdx = firstIdx;
       var isInvalidValue = true;
       while (isInvalidValue && correctedFirstIdx > 0) {
@@ -2229,7 +2215,7 @@ Dygraph.prototype.gatherDatasets_ = function(rolledSeries, dateWindow) {
         isInvalidValue = series[correctedFirstIdx][1] === null;
       }
 
-      if (lastIdx === null) lastIdx = series.length - 1;
+      if (lastIdx === -1) lastIdx = series.length - 1;
       var correctedLastIdx = lastIdx;
       isInvalidValue = true;
       while (isInvalidValue && correctedLastIdx < series.length - 1) {
@@ -2245,20 +2231,20 @@ Dygraph.prototype.gatherDatasets_ = function(rolledSeries, dateWindow) {
       }
 
       boundaryIds[seriesIdx-1] = [firstIdx, lastIdx];
-
-      // .slice's end is exclusive, we want to include lastIdx.
-      series = series.slice(firstIdx, lastIdx + 1);
-    } else {
-      series = rolledSeries[seriesIdx];
+    } else {      
       boundaryIds[seriesIdx-1] = [0, series.length-1];
+      firstIdx = 0;
+      lastIdx = series.length - 1;
     }
 
+    // the boundary window is passed to the data handler functions (for implementation specific slicing)
+    var boundaries = [firstIdx, lastIdx + 1];
     var seriesName = this.attr_("labels")[seriesIdx];
     var seriesExtremes = this.dataHandler_.getExtremeYValues(series,
-        dateWindow, this.getBooleanOption("stepPlot",seriesName));
+        boundaries, this.getBooleanOption("stepPlot",seriesName));
 
     var seriesPoints = this.dataHandler_.seriesToPoints(series,
-        seriesName, boundaryIds[seriesIdx-1][0]);
+        seriesName, boundaries);
 
     if (this.getBooleanOption("stackedGraph")) {
       axisIdx = this.attributes_.axisForSeries(seriesName);
@@ -2796,23 +2782,6 @@ Dygraph.prototype.parseCSV_ = function(data) {
   return ret;
 };
 
-// In native format, all values must be dates or numbers.
-// This check isn't perfect but will catch most mistaken uses of strings.
-function validateNativeFormat(data) {
-  const firstRow = data[0];
-  const firstX = firstRow[0];
-  if (typeof firstX !== 'number' && !utils.isDateLike(firstX)) {
-    throw new Error(`Expected number or date but got ${typeof firstX}: ${firstX}.`);
-  }
-  for (let i = 1; i < firstRow.length; i++) {
-    const val = firstRow[i];
-    if (val === null || val === undefined) continue;
-    if (typeof val === 'number') continue;
-    if (utils.isArrayLike(val)) continue;  // e.g. error bars or custom bars.
-    throw new Error(`Expected number or array but got ${typeof val}: ${val}.`);
-  }
-}
-
 /**
  * The user has provided their data as a pre-packaged JS array. If the x values
  * are numeric, this is the same as dygraphs' internal format. If the x values
@@ -2822,58 +2791,35 @@ function validateNativeFormat(data) {
  * @private
  */
 Dygraph.prototype.parseArray_ = function(data) {
-  // Peek at the first x value to see if it's numeric.
-  if (data.length === 0) {
-    console.error("Can't plot empty data set");
-    return null;
-  }
-  if (data[0].length === 0) {
-    console.error("Data set cannot contain an empty row");
-    return null;
-  }
+  
+  this.dataHandler_.validateDataFormat(data);
 
-  validateNativeFormat(data);
-
-  var i;
+  var i;  
+  let cols = this.dataHandler_.numColumns(data);
   if (this.attr_("labels") === null) {
     console.warn("Using default labels. Set labels explicitly via 'labels' " +
                  "in the options parameter");
     this.attrs_.labels = [ "X" ];
-    for (i = 1; i < data[0].length; i++) {
+    for (i = 1; i < cols; i++) {
       this.attrs_.labels.push("Y" + i); // Not user_attrs_.
     }
     this.attributes_.reparseSeries();
   } else {
     var num_labels = this.attr_("labels");
-    if (num_labels.length != data[0].length) {
+    if (num_labels.length != cols) {
       console.error("Mismatch between number of labels (" + num_labels + ")" +
-                    " and number of columns in array (" + data[0].length + ")");
+                    " and number of columns in array (" + cols + ")");
       return null;
     }
   }
 
-  if (utils.isDateLike(data[0][0])) {
+  if (utils.isDateLike(this.dataHandler_.getValue(data, 0, 0))) {
     // Some intelligent defaults for a date x-axis.
     this.attrs_.axes.x.valueFormatter = utils.dateValueFormatter;
     this.attrs_.axes.x.ticker = DygraphTickers.dateTicker;
     this.attrs_.axes.x.axisLabelFormatter = utils.dateAxisLabelFormatter;
 
-    // Assume they're all dates.
-    var parsedData = utils.clone(data);
-    for (i = 0; i < data.length; i++) {
-      if (parsedData[i].length === 0) {
-        console.error("Row " + (1 + i) + " of data is empty");
-        return null;
-      }
-      if (parsedData[i][0] === null ||
-          typeof(parsedData[i][0].getTime) != 'function' ||
-          isNaN(parsedData[i][0].getTime())) {
-        console.error("x value in row " + (1 + i) + " is not a Date");
-        return null;
-      }
-      parsedData[i][0] = parsedData[i][0].getTime();
-    }
-    return parsedData;
+    return this.dataHandler_.parseDates(data);
   } else {
     // Some intelligent defaults for a numeric x-axis.
     /** @private (shut up, jsdoc!) */
@@ -3045,6 +2991,11 @@ Dygraph.prototype.cascadeDataDidUpdateEvent_ = function() {
  */
 Dygraph.prototype.start_ = function() {
   var data = this.file_;
+
+  // Create the correct dataHandler
+  if (!this.dataHandler_ || this.dataHandler_.constructor != this.getHandlerClass_()) {
+    this.dataHandler_ = new (this.getHandlerClass_())();
+  }
 
   // Functions can return references of all other types.
   if (typeof data == 'function') {

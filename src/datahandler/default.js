@@ -77,12 +77,12 @@ DefaultHandler.prototype.rollingAverage = function(originalData, rollPeriod,
 };
 
 /** @inheritDoc */
-DefaultHandler.prototype.getExtremeYValues = function(series, dateWindow,
+DefaultHandler.prototype.getExtremeYValues = function(series, boundaries,
     options) {
   var minY = null, maxY = null, y;
-  var firstIdx = 0, lastIdx = series.length - 1;
+  var firstIdx = boundaries[0], lastIdx = boundaries[1];
 
-  for ( var j = firstIdx; j <= lastIdx; j++) {
+  for ( var j = firstIdx; j < lastIdx; j++) {
     y = series[j][1];
     if (y === null || isNaN(y))
       continue;

@@ -42,12 +42,12 @@
     return value * base / initial;
   };
 
-  RebaseHandler.prototype.getExtremeYValues = function(series, dateWindow, options) {
+  RebaseHandler.prototype.getExtremeYValues = function(series, boundaries, options) {
     var minY = null, maxY = null, y;
-    var firstIdx = 0, lastIdx = series.length - 1;
+    var firstIdx = boundaries[0], lastIdx = boundaries[1];
     var initial = series[firstIdx][1];
 
-    for (var j = firstIdx; j <= lastIdx; j++) {
+    for (var j = firstIdx; j < lastIdx; j++) {
       if (j === firstIdx) {
         y = (this.baseOpt === "percent") ? 0 : this.baseOpt;
       } else {
@@ -65,12 +65,12 @@
     return [ minY, maxY ];
   };
 
-  RebaseHandler.prototype.seriesToPoints = function(series, setName, boundaryIdStart){
+  RebaseHandler.prototype.seriesToPoints = function(series, setName, boundaries){
     var points = [];
-    var firstIdx = 0;
-    var lastIdx = series.length - 1;
+    var firstIdx = boundaries[0];
+    var lastIdx = boundaries[1];
     var initial = series[firstIdx][1]; // TODO: check for null
-    for (var i = 0; i <= lastIdx; ++i) {
+    for (var i = 0; i < lastIdx; ++i) {
       var item = series[i];
       var yraw = item[1];
       var yval = yraw === null ? null : parseFloat(yraw);
@@ -87,7 +87,7 @@
         xval: parseFloat(item[0]),
         yval: yval,
         name: setName,
-        idx: i + boundaryIdStart
+        idx: i + firstIdx
       };
       points.push(point);
     }

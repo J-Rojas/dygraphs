@@ -421,17 +421,21 @@ export function round_(num, places) {
 /**
  * Implementation of binary search over an array.
  * Currently does not work when val is outside the range of arry's values.
- * @param {number} val the value to search for
- * @param {Array.<number>} arry is the value over which to search
+ * @param {number} searchElement the value to search for
+ * @param {Array.<number>} array is the value over which to search
  * @param {number} abs If abs > 0, find the lowest entry greater than val
  *     If abs < 0, find the highest entry less than val.
  *     If abs == 0, find the entry that equals val.
  * @param {number=} low The first index in arry to consider (optional)
  * @param {number=} high The last index in arry to consider (optional)
+ * @param {Function=} accessor functor that returns the result from the series data (optional)
  * @return {number} Index of the element, or -1 if it isn't found.
  * @private
  */
-export function binarySearch(val, arry, abs, low, high) {
+
+export function binarySearch(searchElement, array, abs, low, high, accessor) {
+  'use strict';
+
   if (low === null || low === undefined ||
       high === null || high === undefined) {
     low = 0;
@@ -443,35 +447,35 @@ export function binarySearch(val, arry, abs, low, high) {
   if (abs === null || abs === undefined) {
     abs = 0;
   }
-  var validIndex = function(idx) {
-    return idx >= 0 && idx < arry.length;
-  };
-  var mid = parseInt((low + high) / 2, 10);
-  var element = arry[mid];
-  var idx;
-  if (element == val) {
-    return mid;
-  } else if (element > val) {
-    if (abs > 0) {
-      // Accept if element > val, but also if prior element < val.
-      idx = mid - 1;
-      if (validIndex(idx) && arry[idx] < val) {
-        return mid;
+
+  var minIndex = low;
+  var maxIndex = high;
+  var currentIndex;
+  var currentElement;
+
+  while (minIndex <= maxIndex) {
+      currentIndex = (minIndex + maxIndex) / 2 | 0;
+      currentElement = array[currentIndex];
+      if (accessor) currentElement = accessor(currentElement);
+
+      if (currentElement < searchElement) {
+          minIndex = currentIndex + 1;          
       }
-    }
-    return binarySearch(val, arry, abs, low, mid - 1);
-  } else if (element < val) {
-    if (abs < 0) {
-      // Accept if element < val, but also if prior element > val.
-      idx = mid + 1;
-      if (validIndex(idx) && arry[idx] > val) {
-        return mid;
+      else if (currentElement > searchElement) {
+          maxIndex = currentIndex - 1;          
       }
-    }
-    return binarySearch(val, arry, abs, mid + 1, high);
+      else {
+          return currentIndex;
+      }
   }
-  return -1;  // can't actually happen, but makes closure compiler happy
-};
+
+  if (abs < 0 && currentElement > searchElement && currentIndex > low) return currentIndex - 1;
+  else if (abs < 0 && currentElement < searchElement) return currentIndex;
+  else if (abs > 0 && currentElement > searchElement) return currentIndex;
+  else if (abs > 0 && currentElement < searchElement && currentIndex < high) return currentIndex + 1;
+
+  return -1;
+}
 
 /**
  * Parses a date, returning the number of milliseconds since epoch. This can be
