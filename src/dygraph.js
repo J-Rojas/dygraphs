@@ -1461,12 +1461,14 @@ Dygraph.prototype.eventToDomCoords = function(event) {
 /**
  * Given a canvas X coordinate, find the closest row.
  * @param {number} domX graph-relative DOM X coordinate
+ * @param {boolean} multiple if true, return the closest row for each series, otherwise return the closest row across all series
  * Returns {number} row number.
  * @private
  */
-Dygraph.prototype.findClosestRow = function(domX) {
+Dygraph.prototype.findClosestRow = function(domX, multiple) {
   var minDistX = Infinity;
   var closestRow = -1;
+  var closestRows = multiple ? [] : null;
   var sets = this.layout_.points;
   for (var i = 0; i < sets.length; i++) {
     var points = sets[i];
@@ -1480,9 +1482,14 @@ Dygraph.prototype.findClosestRow = function(domX) {
         closestRow = point.idx;
       }
     }
+    if (multiple) {
+      closestRows.push(closestRow);
+      closestRow = -1;
+      minDistX = Infinity;
+    }
   }
 
-  return closestRow;
+  return multiple ? closestRows : closestRow;
 };
 
 /**
@@ -1609,8 +1616,8 @@ Dygraph.prototype.mouseMove_ = function(event) {
     }
     selectionChanged = this.setSelection(closest.row, closest.seriesName);
   } else {
-    var idx = this.findClosestRow(canvasx);
-    selectionChanged = this.setSelection(idx);
+    var indexes = this.findClosestRow(canvasx, true);
+    selectionChanged = this.setSelection(indexes);
   }
 
   var callback = this.getFunctionOption("highlightCallback");
@@ -1785,7 +1792,7 @@ Dygraph.prototype.updateSelection_ = function(opt_animFraction) {
  * To set a selected series but not a selected point, call setSelection with
  * row=false and the selected series name.
  *
- * @param {number} row Row number that should be highlighted (i.e. appear with
+ * @param {number|Array} argRow Row number(s) that should be highlighted (i.e. appear with
  * hover dots on the chart).
  * @param {seriesName} optional series name to highlight that series with the
  * the highlightSeriesOpts setting.
@@ -1793,16 +1800,22 @@ Dygraph.prototype.updateSelection_ = function(opt_animFraction) {
  * over the graph, disabling closest-series highlighting. Call clearSelection()
  * to unlock it.
  */
-Dygraph.prototype.setSelection = function(row, opt_seriesName, opt_locked) {
+Dygraph.prototype.setSelection = function(argRow, opt_seriesName, opt_locked) {
   // Extract the points we've selected
   this.selPoints_ = [];
 
-  var changed = false;
-  if (row !== false && row >= 0) {
-    if (row != this.lastRow_) changed = true;
-    this.lastRow_ = row;
+  var changed = false;  
+  var isArray = Array.isArray(argRow)
+  if (argRow !== false && (isArray || argRow >= 0)) {   
+    if (isArray) {
+      changed = argRow.some((it, index) => this.lastRow_[index] != it)      
+    } else {
+      if (argRow != this.lastRow_) changed = true;
+    }
+    this.lastRow_ = argRow;
     for (var setIdx = 0; setIdx < this.layout_.points.length; ++setIdx) {
       var points = this.layout_.points[setIdx];
+      var row = isArray ? argRow[setIdx] : argRow;
       // Check if the point at the appropriate index is the point we're looking
       // for.  If it is, just use it, otherwise search the array for a point
       // in the proper place.
