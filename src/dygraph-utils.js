@@ -1008,6 +1008,8 @@ export function pow(base, exp) {
 };
 
 var RGBA_RE = /^rgba?\((\d{1,3}),\s*(\d{1,3}),\s*(\d{1,3})(?:,\s*([01](?:\.\d+)?))?\)$/;
+var CSS_SHORT = /^#([0-9a-f]{3})$/i;
+var CSS_LONG = /^#([0-9a-f]{6})$/i;
 
 /**
  * Helper for toRGB_ which parses strings of the form:
@@ -1035,20 +1037,31 @@ function parseRGBA(rgbStr) {
  * @return {{r:number,g:number,b:number,a:number?}} Parsed RGB tuple.
  * @private
  */
-export function toRGB_(colorStr) {
-  // Strategy: First try to parse colorStr directly. This is fast & avoids DOM
-  // manipulation.  If that fails (e.g. for named colors like 'red'), then
-  // create a hidden DOM element and parse its computed color.
+export function toRGB_(colorStr) {  
   var rgb = parseRGBA(colorStr);
   if (rgb) return rgb;
 
-  var div = document.createElement('div');
-  div.style.backgroundColor = colorStr;
-  div.style.visibility = 'hidden';
-  document.body.appendChild(div);
-  var rgbStr = window.getComputedStyle(div, null).backgroundColor;
-  document.body.removeChild(div);
-  return parseRGBA(rgbStr);
+  var m = CSS_SHORT.exec(colorStr)[1];
+  if(m) {
+      // in three-character format, each value is multiplied by 0x11 to give an
+      // even scale from 0x00 to 0xff
+      return {
+          r: parseInt(m.charAt(0),16)*0x11,
+          g: parseInt(m.charAt(1),16)*0x11,
+          b: parseInt(m.charAt(2),16)*0x11
+      };
+  }
+
+  m = CSS_LONG.exec(colorStr)[1];
+  if(m) {
+      return {
+          r: parseInt(m.substr(0,2),16),
+          g: parseInt(m.substr(2,2),16),
+          b: parseInt(m.substr(4,2),16)
+      };
+  }
+
+  return null;
 };
 
 /**
