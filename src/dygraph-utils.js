@@ -1041,23 +1041,23 @@ export function toRGB_(colorStr) {
   var rgb = parseRGBA(colorStr);
   if (rgb) return rgb;
 
-  var m = CSS_SHORT.exec(colorStr)[1];
+  var m = CSS_SHORT.exec(colorStr);  
   if(m) {
       // in three-character format, each value is multiplied by 0x11 to give an
       // even scale from 0x00 to 0xff
       return {
-          r: parseInt(m.charAt(0),16)*0x11,
-          g: parseInt(m.charAt(1),16)*0x11,
-          b: parseInt(m.charAt(2),16)*0x11
+          r: parseInt(m[1].charAt(0),16)*0x11,
+          g: parseInt(m[1].charAt(1),16)*0x11,
+          b: parseInt(m[1].charAt(2),16)*0x11
       };
   }
 
-  m = CSS_LONG.exec(colorStr)[1];
+  m = CSS_LONG.exec(colorStr);
   if(m) {
       return {
-          r: parseInt(m.substr(0,2),16),
-          g: parseInt(m.substr(2,2),16),
-          b: parseInt(m.substr(4,2),16)
+          r: parseInt(m[1].substr(0,2),16),
+          g: parseInt(m[1].substr(2,2),16),
+          b: parseInt(m[1].substr(4,2),16)
       };
   }
 
