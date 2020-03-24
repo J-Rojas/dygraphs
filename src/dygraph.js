@@ -515,11 +515,12 @@ Dygraph.prototype.xAxisRange = function() {
  */
 Dygraph.prototype.xAxisExtremes = function() {
   var pad = this.getNumericOption('xRangePad') / this.plotter_.area.w;
-  if (this.numRows() === 0) {
+  var rows = this.numRows()
+  if (rows === 0) {
     return [0 - pad, 1 + pad];
   }
   var left = this.getValue(0, 0);
-  var right = this.getValue(this.numRows(), 0);
+  var right = this.getValue(rows - 1, 0);
   if (pad) {
     // Must keep this in sync with dygraph-layout _evaluateLimits()
     var range = right - left;
