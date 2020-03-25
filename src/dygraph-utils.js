@@ -237,15 +237,15 @@ export function dragGetY_(e, context) {
 };
 
 /**
- * This returns true unless the parameter is 0, null, undefined or NaN.
+ * This returns true unless the parameter is null, undefined or NaN.
  * TODO(danvk): rename this function to something like 'isNonZeroNan'.
  *
  * @param {number} x The number to consider.
- * @return {boolean} Whether the number is zero or NaN.
+ * @return {boolean} Whether the number is undefined, null or NaN.
  * @private
  */
 export function isOK(x) {
-  return !!x && !isNaN(x);
+  return x != void(0) && !isNaN(x);
 };
 
 /**
