@@ -142,7 +142,7 @@ axes.prototype.willDrawChart = function(e) {
     inner_div.className = 'dygraph-axis-label' +
                           ' dygraph-axis-label-' + axis +
                           (prec_axis ? ' dygraph-axis-label-' + prec_axis : '');
-    inner_div.innerHTML = txt;
+    inner_div.appendChild(document.createTextNode(txt));
     div.appendChild(inner_div);
     return div;
   };

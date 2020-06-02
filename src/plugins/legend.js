@@ -28,7 +28,14 @@ import * as utils from '../dygraph-utils';
  */
 var Legend = function() {
   this.legend_div_ = null;
-  this.is_generated_div_ = false;  // do we own this div, or was it user-specified?
+  // do we own this div, or was it user-specified?
+  this.is_generated_div_ = false;
+  var that = this; 
+  this._calculatedData = {
+    oneEmWidthFunc: function() {
+      return calculateEmWidthInDiv(that.legend_div_)
+    }
+  }   
 };
 
 Legend.prototype.toString = function() {
@@ -138,7 +145,7 @@ Legend.prototype.select = function(e) {
     this.legend_div_.style.top = topLegend + "px";
   }
 
-  var html = this.generateLegendHTML(e.dygraph, xValue, points, this.one_em_width_, row);
+  var html = this.generateLegendHTML(e.dygraph, xValue, points, this._calculatedData, row);
   replaceHTML(this.legend_div_, html)
   this.legend_div_.style.display = '';
 };
@@ -149,11 +156,8 @@ Legend.prototype.deselect = function(e) {
     this.legend_div_.style.display = "none";
   }
 
-  // Have to do this every time, since styles might have changed.
-  var oneEmWidth = calculateEmWidthInDiv(this.legend_div_);
-  this.one_em_width_ = oneEmWidth;
-
-  var html = this.generateLegendHTML(e.dygraph, undefined, undefined, oneEmWidth, null);
+  // Have to do this every time, since styles might have changed.    
+  var html = this.generateLegendHTML(e.dygraph, undefined, undefined, this._calculatedData, null);
   replaceHTML(this.legend_div_, html)
 };
 
@@ -203,7 +207,7 @@ Legend.prototype.destroy = function() {
  * @param {number} row The selected row index.
  * @private
  */
-Legend.prototype.generateLegendHTML = function(g, x, sel_points, oneEmWidth, row) {
+Legend.prototype.generateLegendHTML = function(g, x, sel_points, calculatedData, row) {
   // Data about the selection to pass to legendFormatter
   var data = {
     dygraph: g,
@@ -219,7 +223,7 @@ Legend.prototype.generateLegendHTML = function(g, x, sel_points, oneEmWidth, row
       var series = g.getPropertiesForSeries(labels[i]);
       var strokePattern = g.getOption('strokePattern', labels[i]);
       var seriesData = {
-        dashHTML: generateLegendDashHTML(strokePattern, series.color, oneEmWidth),
+        dashHTML: generateLegendDashHTML(strokePattern, series.color, calculatedData),
         label: labels[i],
         labelHTML: escapeHTML(labels[i]),
         isVisible: series.visible,
@@ -319,11 +323,11 @@ Legend.defaultFormatter = function(data) {
  *
  * @param strokePattern The pattern
  * @param color The color of the series.
- * @param oneEmWidth The width in pixels of 1em in the legend.
+ * @param calculatedData Precalculated data for rendering
  * @private
  */
 // TODO(danvk): cache the results of this
-function generateLegendDashHTML(strokePattern, color, oneEmWidth) {
+function generateLegendDashHTML(strokePattern, color, calculatedData) {
   // Easy, common case: a solid line
   if (!strokePattern || strokePattern.length <= 1) {
     return `<div class="dygraph-legend-line" style="border-bottom-color: ${color};"></div>`;
@@ -334,6 +338,10 @@ function generateLegendDashHTML(strokePattern, color, oneEmWidth) {
   var normalizedPattern = [];
   var loop;
 
+  if (calculatedData.oneEmWidth == void(0)) {
+    calculatedData.oneEmWidth = calculatedData.oneEmWidthFunc()
+  }
+
   // Compute the length of the pixels including the first segment twice,
   // since we repeat it.
   for (i = 0; i <= strokePattern.length; i++) {
@@ -341,7 +349,7 @@ function generateLegendDashHTML(strokePattern, color, oneEmWidth) {
   }
 
   // See if we can loop the pattern by itself at least twice.
-  loop = Math.floor(oneEmWidth/(strokePixelLength-strokePattern[0]));
+  loop = Math.floor(calculatedData.oneEmWidth/(strokePixelLength-strokePattern[0]));
   if (loop > 1) {
     // This pattern fits at least two times, no scaling just convert to em;
     for (i = 0; i < strokePattern.length; i++) {

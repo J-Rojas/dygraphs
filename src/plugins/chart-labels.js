@@ -15,6 +15,7 @@ var chart_labels = function() {
   this.xlabel_div_ = null;
   this.ylabel_div_ = null;
   this.y2label_div_ = null;
+  this._lastRect = null;
 };
 
 chart_labels.prototype.toString = function() {
@@ -92,6 +93,11 @@ var createRotatedDiv = function(g, box, axis, classes, html) {
 };
 
 chart_labels.prototype.layout = function(e) {
+
+  var rect = e.chartRect()
+  if (this._lastRect && (this._lastRect.x == rect.x && this._lastRect.y == rect.y && this._lastRect.w == rect.w && this._lastRect.h == rect.h )) return;
+  this._lastRect = rect;
+
   this.detachLabels_();
 
   var g = e.dygraph;
@@ -150,25 +156,27 @@ chart_labels.prototype.layout = function(e) {
 
 chart_labels.prototype.didDrawChart = function(e) {
   var g = e.dygraph;
-  if (this.title_div_) {
-    this.title_div_.children[0].innerHTML = g.getOption('title');
+  if (this.title_div_ && !this.title_div_.children.length) {
+    this.title_div_.children[0].innerHTML = g.getOption('title');    
   }
-  if (this.xlabel_div_) {
+  if (this.xlabel_div_ && !this.xlabel_div_.children.length) {
     this.xlabel_div_.children[0].innerHTML = g.getOption('xlabel');
   }
-  if (this.ylabel_div_) {
+  if (this.ylabel_div_ && !this.ylabel_div_.children[0].children.length) {
     this.ylabel_div_.children[0].children[0].innerHTML = g.getOption('ylabel');
   }
-  if (this.y2label_div_) {
+  if (this.y2label_div_ && !this.y2label_div_.children[0].children.length) {
     this.y2label_div_.children[0].children[0].innerHTML = g.getOption('y2label');
   }
 };
 
 chart_labels.prototype.clearChart = function() {
+  this._lastRect = null;
 };
 
 chart_labels.prototype.destroy = function() {
   this.detachLabels_();
+  this._lastRect = null;
 };
 
 export default chart_labels;
