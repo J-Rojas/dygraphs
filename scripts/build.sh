@@ -35,10 +35,8 @@ header='/*! @license Copyright 2017 Dan Vanderkam (danvdk@gmail.com) MIT-license
 
 # Create dist/dygraph.js.min{,.map}
 uglifyjs --compress --mangle \
-  --preamble "$header" \
-  --in-source-map dist/dygraph.tmp.js.map \
-  --source-map-include-sources \
-  --source-map dist/dygraph.min.js.map \
+  --beautify 'beautify=false,preamble="$header"' \
+  --source-map 'content=dist/dygraph.tmp.js.map,includeSources,filename=dist/dygraph.min.js.map' \
   -o dist/dygraph.min.js \
   dist/dygraph.tmp.js
 
