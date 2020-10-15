@@ -1156,6 +1156,14 @@ Dygraph.prototype.createDragInterface_ = function() {
     }
   };
 
+  // destroy old events  
+  if (this._interactionModelEvents) {
+    for (var event of this._interactionModelEvents) {
+      this.removeTrackedEvents_(event)
+    }
+    this._interactionModelEvents = null
+  }
+
   var interactionModel = this.getOption("interactionModel");
 
   // Self is the graph.
@@ -1168,10 +1176,13 @@ Dygraph.prototype.createDragInterface_ = function() {
     };
   };
 
+  this._interactionModelEvents = []
+
   for (var eventName in interactionModel) {
     if (!interactionModel.hasOwnProperty(eventName)) continue;
-    this.addAndTrackEvent(this.mouseEventElement_, eventName,
-        bindHandler(interactionModel[eventName]));
+    this._interactionModelEvents.push(this.addAndTrackEvent(this.mouseEventElement_, eventName,
+        bindHandler(interactionModel[eventName]))
+    );
   }
 
   // If the user releases the mouse button during a drag, but not over the
@@ -1181,7 +1192,9 @@ Dygraph.prototype.createDragInterface_ = function() {
       context.destroy();
     };
 
-    this.addAndTrackEvent(document, 'mouseup', mouseUpHandler);
+    this._interactionModelEvents.push(
+      this.addAndTrackEvent(document, 'mouseup', mouseUpHandler)
+    );
   }
 };
 
@@ -1463,28 +1476,46 @@ Dygraph.prototype.eventToDomCoords = function(event) {
  * Given a canvas X coordinate, find the closest row.
  * @param {number} domX graph-relative DOM X coordinate
  * @param {boolean} multiple if true, return the closest row for each series, otherwise return the closest row across all series
+ * @param {boolean} onlyWithinRange if true, only consider a row if the domX values falls within the range of its series
  * Returns {number} row number.
  * @private
  */
-Dygraph.prototype.findClosestRow = function(domX, multiple) {
+Dygraph.prototype.findClosestRow = function(domX, multiple, onlyWithinRange) {
   var minDistX = Infinity;
   var closestRow = -1;
   var closestRows = multiple ? [] : null;
-  var sets = this.layout_.points;
-  for (var i = 0; i < sets.length; i++) {
+  var sets = this.layout_.points;    
+  for (var i = 0; i < sets.length; i++) {        
+    var isLeftInRange = !onlyWithinRange, isRightInRange = !onlyWithinRange;
     var points = sets[i];
     var len = points.length;
+    var closestRowInSeries = -1;
+    var minDistXInSeries = Infinity
     for (var j = 0; j < len; j++) {
       var point = points[j];
       if (!utils.isValidPoint(point, true)) continue;
+      var dX = point.canvasx - domX;
+      if (j == 0) {
+        isLeftInRange |= dX <= 0;
+      } else if (j == len - 1) {
+        isRightInRange |= dX >= 0;
+      }      
       var dist = Math.abs(point.canvasx - domX);
-      if (dist < minDistX) {
-        minDistX = dist;
-        closestRow = point.idx;
+      if (dist < minDistXInSeries) {
+        minDistXInSeries = dist;
+        closestRowInSeries = point.idx;
       }
     }
+    
+    if (isLeftInRange && isRightInRange && minDistXInSeries < minDistX) {
+      closestRow = closestRowInSeries;
+      minDistX = minDistXInSeries;
+      if (multiple) {
+        closestRows.push(closestRow);
+      }
+    }
+    
     if (multiple) {
-      closestRows.push(closestRow);
       closestRow = -1;
       minDistX = Infinity;
     }
@@ -1617,7 +1648,7 @@ Dygraph.prototype.mouseMove_ = function(event) {
     }
     selectionChanged = this.setSelection(closest.row, closest.seriesName);
   } else {
-    var indexes = this.findClosestRow(canvasx, true);
+    var indexes = this.findClosestRow(canvasx, true, true);
     selectionChanged = this.setSelection(indexes);
   }
 
@@ -3094,6 +3125,12 @@ Dygraph.prototype.updateOptions = function(input_attrs, block_redraw) {
     this.dateWindow_ = attrs.dateWindow;
   }
 
+  if ('interactionModel' in attrs) {
+    // remove the interactionModel to prevent partial updates
+    this.user_attrs_.interactionModel = null
+  }
+
+
   // TODO(danvk): validate per-series options.
   // Supported:
   // strokeWidth
@@ -3125,6 +3162,12 @@ Dygraph.prototype.updateOptions = function(input_attrs, block_redraw) {
       }
     }
   }
+
+  if ('interactionModel' in attrs) {
+    // recreate drag interface
+    this.createDragInterface_()
+  }
+
 };
 
 /**
@@ -3380,22 +3423,32 @@ Dygraph.prototype.ready = function(callback) {
  * @param {string} type The type of the event, e.g. 'click' or 'mousemove'.
  * @param {function(Event):(boolean|undefined)} fn The function to call
  *     on the event. The function takes one parameter: the event object.
+ * @returns {object} the event object
  * @private
  */
 Dygraph.prototype.addAndTrackEvent = function(elem, type, fn) {
   utils.addEvent(elem, type, fn);
-  this.registeredEvents_.push({elem, type, fn});
+  var retval = {elem, type, fn};
+  this.registeredEvents_.push(retval);
+  return retval
 };
 
-Dygraph.prototype.removeTrackedEvents_ = function() {
+Dygraph.prototype.removeTrackedEvents_ = function(event) {
   if (this.registeredEvents_) {
-    for (var idx = 0; idx < this.registeredEvents_.length; idx++) {
-      var reg = this.registeredEvents_[idx];
-      utils.removeEvent(reg.elem, reg.type, reg.fn);
+    if (!event) {
+      for (var idx = 0; idx < this.registeredEvents_.length; idx++) {
+        var reg = this.registeredEvents_[idx];
+        utils.removeEvent(reg.elem, reg.type, reg.fn);
+      }
+      this.registeredEvents_ = [];
+    } else {
+      var index = this.registeredEvents_.indexOf(event);
+      if (index != -1) {
+        this.registeredEvents_.splice(index, 1);
+      }
+      utils.removeEvent(event.elem, event.type, event.fn);
     }
   }
-
-  this.registeredEvents_ = [];
 };
 
 

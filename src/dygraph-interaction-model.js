@@ -665,7 +665,9 @@ DygraphInteraction.defaultModel = {
         DygraphInteraction.movePan(event, g, context);
       }
     };
-    var mouseup = function(event) {
+    var eventMouseUp = null;
+    var eventMouseMove = null;
+    var mouseup = function mouseup(event) {
       if (context.isZooming) {
         if (context.dragEndX !== null) {
           DygraphInteraction.endZoom(event, g, context);
@@ -676,13 +678,13 @@ DygraphInteraction.defaultModel = {
         DygraphInteraction.endPan(event, g, context);
       }
 
-      utils.removeEvent(document, 'mousemove', mousemove);
-      utils.removeEvent(document, 'mouseup', mouseup);
+      g.removeTrackedEvents_(eventMouseMove);
+      g.removeTrackedEvents_(eventMouseUp);
       context.destroy();
     };
 
-    g.addAndTrackEvent(document, 'mousemove', mousemove);
-    g.addAndTrackEvent(document, 'mouseup', mouseup);
+    eventMouseMove = g.addAndTrackEvent(document, 'mousemove', mousemove);
+    eventMouseUp = g.addAndTrackEvent(document, 'mouseup', mouseup);
   },
   willDestroyContextMyself: true,
 
